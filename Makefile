@@ -2,11 +2,11 @@
 #
 # The device build for the apps: checks out the sibling repositories, builds the
 # pinned MIPS toolchain if it is not there, runs the ABI check and packages the
-# .mapp files.
+# .pkgmerp files.
 #
 #   make host        validate the manifests and run the apps' host tests
 #   make device      build the toolchain and the MIPS app binaries, then check-abi
-#   make package     do the above and write dist/*.mapp
+#   make package     do the above and write dist/*.pkgmerp
 #   make test        alias for host
 #   make toolchain   build the toolchain only
 #   make clean       remove dist/, leave the toolchain alone
@@ -84,7 +84,7 @@ package: device
 		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" \
 		MORPTHIS_MODE=device package
 	@mkdir -p "$(DIST)"
-	@cp "$(APPS)"/dist/*.mapp "$(DIST)"/
+	@cp "$(APPS)"/dist/*.pkgmerp "$(DIST)"/
 	@{ \
 		echo "built: $$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
 		echo "apps: $$(git -C "$(APPS)" rev-parse HEAD 2>/dev/null || echo unknown)"; \

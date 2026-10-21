@@ -4,13 +4,13 @@ The device build for Morpthis apps.
 
 This repository does not hold app source. It checks out the five repositories,
 builds the pinned MIPS toolchain when it is not already cached, runs the SDK
-ABI check against every app, and writes the `.mapp` packages.
+ABI check against every app, and writes the `.pkgmerp` packages.
 
 ```text
 morpthis-build/
   Makefile                 local and CI entry points
   .github/workflows/build.yml
-  dist/                    .mapp output (gitignored)
+  dist/                    .pkgmerp output (gitignored)
   toolchain/               pinned cross compiler (gitignored)
   toolchain-downloads/     source tarballs for it (gitignored)
 ```
@@ -28,13 +28,26 @@ morpthis-build/
 The output is one package per app under `dist/`:
 
 ```text
-calculator-1.0.0.mapp
-checksum-1.0.0.mapp
+calculator.pkgmerp
+checksum.pkgmerp
+doom.pkgmerp
+flappybird.pkgmerp
 BUILD-INFO.txt
 ```
 
-A `.mapp` is a zip with the app folder at its root: `app.json`, the optional
-icon, and the entry binary. Extract it to `Apps/<id>/` on the card.
+A `.pkgmerp` is an uncompressed squashfs image with the app folder at its root:
+`app.json`, the optional icon, and the entry binary. The player mounts it
+read-only through a loop device; nothing is extracted. The name carries no
+version, because the card holds at most one package per app and replacing the
+file is the update. `squashfs-tools` must be installed where `make package`
+runs (the CI job installs it).
+
+On the card:
+
+```text
+<card>/Apps/pkgmerps/<id>.pkgmerp
+<card>/merp_data/<id>/          the app's writable folder
+```
 
 ## Local build
 
@@ -51,7 +64,7 @@ morpthis/
 
 ```sh
 make host       # validate manifests and run the host smoke tests
-make package    # build the toolchain if needed, then dist/*.mapp
+make package    # build the toolchain if needed, then dist/*.pkgmerp
 ```
 
 Override paths when the checkout is elsewhere:
@@ -77,9 +90,12 @@ job runs on a manual dispatch or a tag:
   are supplied, and applies the Doom port patch before building.
 - It restores `toolchain/` from the Actions cache. On a miss it builds the
   toolchain from the player's `rockboxdev` scripts.
-- It runs `make package`, so the ABI check happens before any `.mapp` is
+- It runs `make package`, so the ABI check happens before any `.pkgmerp` is
   written.
-- It uploads `dist/` as an artifact.
+- It uploads the packages three ways: `morpthis-pkgmerps-<sha>` with every
+  file, `pkgmerp-<id>` for each app on its own, and
+  `morpthis-pkgmerps-<sha>-zip` with the whole set in one zip. Releases get the
+  loose `.pkgmerp` files and the zip.
 
 Manual dispatch inputs:
 
