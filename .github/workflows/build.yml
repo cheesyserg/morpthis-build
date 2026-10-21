@@ -57,6 +57,16 @@ jobs:
           ref: ${{ github.event.inputs.sdk_ref || 'main' }}
           path: sdk
 
+      - name: Check out doomgeneric
+        uses: actions/checkout@v4
+        with:
+          repository: ozkl/doomgeneric
+          ref: e257a09527062bfb986b6e5e0780839b6cbd5b71
+          path: doomgeneric
+
+      - name: Apply the Morpthis Doom port
+        run: git -C doomgeneric apply "$GITHUB_WORKSPACE/apps/apps/doom/doomgeneric-morpthis.patch"
+
       - name: Validate the manifests and run the host tests
         run: make host APPS_DIR=apps SDK_DIR=sdk
 
@@ -90,6 +100,16 @@ jobs:
           repository: ${{ github.repository_owner }}/morpthis-player
           ref: ${{ github.event.inputs.player_ref || 'main' }}
           path: player
+
+      - name: Check out doomgeneric
+        uses: actions/checkout@v4
+        with:
+          repository: ozkl/doomgeneric
+          ref: e257a09527062bfb986b6e5e0780839b6cbd5b71
+          path: doomgeneric
+
+      - name: Apply the Morpthis Doom port
+        run: git -C doomgeneric apply "$GITHUB_WORKSPACE/apps/apps/doom/doomgeneric-morpthis.patch"
 
       - name: Install the toolchain build dependencies
         run: |

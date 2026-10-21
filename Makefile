@@ -12,22 +12,25 @@
 #   make clean       remove dist/, leave the toolchain alone
 #   make clean-toolchain
 #
-# Defaults assume the four repositories are siblings:
+# Defaults assume the repositories are siblings:
 #
 #   <workspace>/
 #     morpthis-apps/
 #     morpthis-build/     <- here
 #     morpthis-player/
 #     morpthis-sdk/
+#     doomgeneric/
 #
 # Every path can be overridden:
 #
 #   make APPS_DIR=/path/to/morpthis-apps SDK_DIR=/path/to/morpthis-sdk \
-#        PLAYER_DIR=/path/to/morpthis-player package
+#        PLAYER_DIR=/path/to/morpthis-player \
+#        DOOMGENERIC_DIR=/path/to/doomgeneric/doomgeneric package
 
 APPS_DIR ?= ../morpthis-apps
 SDK_DIR ?= ../morpthis-sdk
 PLAYER_DIR ?= ../morpthis-player
+DOOMGENERIC_DIR ?= $(abspath $(APPS_DIR)/../doomgeneric/doomgeneric)
 
 TOOLCHAIN ?= $(CURDIR)/toolchain
 TOOLCHAIN_DOWNLOADS ?= $(CURDIR)/toolchain-downloads
@@ -52,7 +55,8 @@ validate:
 	python3 "$(APPS)/tools/validate-manifest.py" --all "$(APPS)/apps"
 
 host: validate
-	$(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" test
+	$(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" \
+		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" test
 
 test: host
 
@@ -71,11 +75,13 @@ $(CROSS_CC):
 	bash "$(ROCKBOX_SCRIPT)"
 
 device: toolchain
-	$(BUILD_PATH) $(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" check-abi
+	$(BUILD_PATH) $(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" \
+		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" check-abi
 
 package: device
 	@rm -rf "$(DIST)" "$(APPS)/dist"
 	$(BUILD_PATH) $(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" \
+		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" \
 		MORPTHIS_MODE=device package
 	@mkdir -p "$(DIST)"
 	@cp "$(APPS)"/dist/*.mapp "$(DIST)"/
@@ -84,6 +90,7 @@ package: device
 		echo "apps: $$(git -C "$(APPS)" rev-parse HEAD 2>/dev/null || echo unknown)"; \
 		echo "sdk: $$(git -C "$(abspath $(SDK_DIR))" rev-parse HEAD 2>/dev/null || echo unknown)"; \
 		echo "player: $$(git -C "$(abspath $(PLAYER_DIR))" rev-parse HEAD 2>/dev/null || echo unknown)"; \
+		echo "doomgeneric: $$(git -C "$(abspath $(DOOMGENERIC_DIR))" rev-parse HEAD 2>/dev/null || echo unknown)"; \
 	} > "$(DIST)/BUILD-INFO.txt"
 	@echo "Packages in $(DIST):"
 	@ls -1 "$(DIST)"
