@@ -1,0 +1,202 @@
+name: build
+
+# `host` validates the manifests and runs the apps' host tests on every push and
+# pull request.
+#
+# `device` checks out the apps, the SDK and the player, builds the pinned MIPS
+# toolchain from the player's rockboxdev scripts (restored from the Actions cache
+# afterwards), then runs `make package`: the ABI check and one .mapp per app.
+# The cache key hashes rockboxdev itself, so a toolchain change always rebuilds
+# it. The workspace path is part of the compiler's baked-in sysroot, which is why
+# a restored toolchain is checked for usability before the build.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      apps_ref:
+        description: Branch, tag or SHA of morpthis-apps
+        required: false
+        default: main
+      sdk_ref:
+        description: Branch, tag or SHA of morpthis-sdk
+        required: false
+        default: main
+      player_ref:
+        description: Branch, tag or SHA of morpthis-player
+        required: false
+        default: main
+      apps_release_tag:
+        description: Release in morpthis-apps to attach the packages to (optional)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  host:
+    name: Host tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the build scripts
+        uses: actions/checkout@v4
+
+      - name: Check out morpthis-apps
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/morpthis-apps
+          ref: ${{ github.event.inputs.apps_ref || 'main' }}
+          path: apps
+
+      - name: Check out morpthis-sdk
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/morpthis-sdk
+          ref: ${{ github.event.inputs.sdk_ref || 'main' }}
+          path: sdk
+
+      - name: Validate the manifests and run the host tests
+        run: make host APPS_DIR=apps SDK_DIR=sdk
+
+  device:
+    name: Device build and packages
+    needs: host
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out the build scripts
+        uses: actions/checkout@v4
+
+      - name: Check out morpthis-apps
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/morpthis-apps
+          ref: ${{ github.event.inputs.apps_ref || 'main' }}
+          path: apps
+
+      - name: Check out morpthis-sdk
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/morpthis-sdk
+          ref: ${{ github.event.inputs.sdk_ref || 'main' }}
+          path: sdk
+
+      - name: Check out morpthis-player
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/morpthis-player
+          ref: ${{ github.event.inputs.player_ref || 'main' }}
+          path: player
+
+      - name: Install the toolchain build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential git pkg-config wget curl ca-certificates \
+            texinfo bison flex gawk gperf patch xz-utils bzip2 gzip \
+            autoconf automake libtool libtool-bin \
+            libgmp-dev libmpfr-dev libmpc-dev python3
+
+      - name: Compute the toolchain cache key
+        id: cache-key
+        run: |
+          set -euo pipefail
+          digest=$(find player/morpthis-player/rockboxdev -type f -print0 \
+            | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+          echo "key=morpthis-toolchain-v1-${RUNNER_OS}-${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the toolchain
+        id: toolchain
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            toolchain
+            toolchain-downloads
+          key: ${{ steps.cache-key.outputs.key }}
+
+      # The compiler looks up its sysroot by the absolute path it was configured
+      # with. A cache restored under a different workspace path is unusable.
+      - name: Check the restored toolchain
+        id: toolchain-check
+        run: |
+          set -euo pipefail
+          gcc="$GITHUB_WORKSPACE/toolchain/bin/mipsel-rockbox-linux-gnu-gcc"
+          usable=false
+          if [ -x "$gcc" ]; then
+            sysroot=""
+            if ! sysroot=$("$gcc" -print-sysroot 2>/dev/null); then
+              sysroot=""
+            fi
+            case "$sysroot" in
+              "$GITHUB_WORKSPACE"/*) usable=true ;;
+              *)
+                echo "::warning::The cached toolchain expects ${sysroot:-an unknown sysroot}; discarding it."
+                rm -rf "$GITHUB_WORKSPACE/toolchain" "$GITHUB_WORKSPACE/toolchain-downloads"
+                ;;
+            esac
+          fi
+          echo "usable=$usable" >> "$GITHUB_OUTPUT"
+
+      - name: Build the toolchain on a cache miss
+        run: make toolchain APPS_DIR=apps SDK_DIR=sdk PLAYER_DIR=player
+
+      - name: Save the toolchain
+        if: steps.toolchain-check.outputs.usable != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            toolchain
+            toolchain-downloads
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Build, check the ABI and package
+        run: make package APPS_DIR=apps SDK_DIR=sdk PLAYER_DIR=player
+
+      - name: Show what was built
+        run: cat dist/BUILD-INFO.txt
+
+      - name: Upload the packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: morpthis-packages-${{ github.sha }}
+          path: |
+            dist/*.mapp
+            dist/BUILD-INFO.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attach the packages to this repository's release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "::notice::There is no release named $GITHUB_REF_NAME; the packages are only in the artifact."
+            exit 0
+          fi
+          gh release upload "$GITHUB_REF_NAME" dist/*.mapp dist/BUILD-INFO.txt --clobber
+
+      # Uploading to another repository needs a token with write access there.
+      # The step is skipped when the input or the secret is absent.
+      - name: Attach the packages to a morpthis-apps release
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.apps_release_tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.APPS_RELEASE_TOKEN }}
+          APPS_RELEASE_TAG: ${{ github.event.inputs.apps_release_tag }}
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY_OWNER}/morpthis-apps"
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::APPS_RELEASE_TOKEN is not set; skipping the $repo release upload."
+            exit 0
+          fi
+          if ! gh release view "$APPS_RELEASE_TAG" -R "$repo" >/dev/null 2>&1; then
+            echo "::warning::No release $APPS_RELEASE_TAG in $repo; skipping."
+            exit 0
+          fi
+          gh release upload "$APPS_RELEASE_TAG" dist/*.mapp dist/BUILD-INFO.txt -R "$repo" --clobber

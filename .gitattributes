@@ -1,0 +1,9 @@
+* text=auto
+
+# Make and the shell do not tolerate CRLF. Pin these to LF in the repository so
+# a Windows checkout still produces files WSL and GitHub Actions can run.
+*.sh text eol=lf
+*.mk text eol=lf
+Makefile text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
