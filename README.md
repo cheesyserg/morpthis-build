@@ -46,7 +46,7 @@ On the card:
 
 ```text
 <card>/Apps/pkgmerps/<id>.pkgmerp
-<card>/merp_data/<id>/          the app's writable folder
+<card>/Apps/merp_data/<id>/      the app's writable folder
 ```
 
 ## Local build
