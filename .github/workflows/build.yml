@@ -73,6 +73,13 @@ jobs:
       - name: Apply the Morpthis Doom port
         run: git -C doomgeneric apply "$GITHUB_WORKSPACE/apps/apps/doom/doomgeneric-morpthis.patch"
 
+      - name: Check out InfoNES
+        uses: actions/checkout@v4
+        with:
+          repository: jay-kumogata/InfoNES
+          ref: fe3295c0a86bf5bbecc22aeab3b3af11f6f47908
+          path: InfoNES
+
       - name: Validate the manifests and run the host tests
         run: make host APPS_DIR=apps SDK_DIR=sdk
 
@@ -138,6 +145,13 @@ jobs:
 
       - name: Apply the Morpthis Doom port
         run: git -C doomgeneric apply "$GITHUB_WORKSPACE/apps/apps/doom/doomgeneric-morpthis.patch"
+
+      - name: Check out InfoNES
+        uses: actions/checkout@v4
+        with:
+          repository: jay-kumogata/InfoNES
+          ref: fe3295c0a86bf5bbecc22aeab3b3af11f6f47908
+          path: InfoNES
 
       - name: Install the toolchain and packaging dependencies
         run: |

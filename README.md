@@ -2,7 +2,7 @@
 
 The device build for Morpthis apps.
 
-This repository does not hold app source. It checks out the five repositories,
+This repository does not hold app source. It checks out the six repositories,
 builds the pinned MIPS toolchain when it is not already cached, runs the SDK
 ABI check against every app, and writes the `.pkgmerp` packages.
 
@@ -23,6 +23,7 @@ morpthis-build/
   GCC 9.5.0 / binutils 2.38 / glibc 2.27 toolchain.
 - `doomgeneric` — the Doom engine source the `doom` app builds from, patched
   with `apps/doom/doomgeneric-morpthis.patch`.
+- `InfoNES` — the NES emulator core the `nes` app builds from.
 - `morpthis-build` — this orchestration.
 
 The output is one package per app under `dist/`:
@@ -32,6 +33,7 @@ calculator.pkgmerp
 checksum.pkgmerp
 doom.pkgmerp
 flappybird.pkgmerp
+nes.pkgmerp
 BUILD-INFO.txt
 ```
 
@@ -60,6 +62,7 @@ morpthis/
   morpthis-player/
   morpthis-sdk/
   doomgeneric/
+  InfoNES/
 ```
 
 ```sh
@@ -74,6 +77,7 @@ make APPS_DIR=/srv/morpthis-apps \
      SDK_DIR=/srv/morpthis-sdk \
      PLAYER_DIR=/srv/morpthis-player \
      DOOMGENERIC_DIR=/srv/doomgeneric/doomgeneric \
+     INFONES_DIR=/srv/InfoNES \
      TOOLCHAIN=/srv/morpthis-toolchain \
      package
 ```
@@ -86,8 +90,9 @@ The toolchain's sysroot is baked in as an absolute path, so do not move
 `build.yml` runs on every push and pull request for the host tests. The device
 job runs on a manual dispatch or a tag:
 
-- It checks out `apps`, `sdk`, `player` and `doomgeneric` at `main` unless refs
-  are supplied, and applies the Doom port patch before building.
+- It checks out `apps`, `sdk`, `player`, `doomgeneric` and `InfoNES` at
+  `main` (InfoNES at a pinned commit) unless refs are supplied, and applies the
+  Doom port patch before building.
 - It restores `toolchain/` from the Actions cache. On a miss it builds the
   toolchain from the player's `rockboxdev` scripts.
 - It runs `make package`, so the ABI check happens before any `.pkgmerp` is
@@ -112,5 +117,5 @@ here when one exists. Attaching to a release in `morpthis-apps` needs an
 skipped when the input or token is absent.
 
 Refs are inputs rather than hidden state: a build run says which `apps`, `sdk`,
-`player` and `doomgeneric` commits it used, and `dist/BUILD-INFO.txt` repeats
-them.
+`player`, `doomgeneric` and `InfoNES` commits it used, and
+`dist/BUILD-INFO.txt` repeats them.

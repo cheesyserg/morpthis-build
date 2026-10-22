@@ -20,17 +20,20 @@
 #     morpthis-player/
 #     morpthis-sdk/
 #     doomgeneric/
+#     InfoNES/
 #
 # Every path can be overridden:
 #
 #   make APPS_DIR=/path/to/morpthis-apps SDK_DIR=/path/to/morpthis-sdk \
 #        PLAYER_DIR=/path/to/morpthis-player \
-#        DOOMGENERIC_DIR=/path/to/doomgeneric/doomgeneric package
+#        DOOMGENERIC_DIR=/path/to/doomgeneric/doomgeneric \
+#        INFONES_DIR=/path/to/InfoNES package
 
 APPS_DIR ?= ../morpthis-apps
 SDK_DIR ?= ../morpthis-sdk
 PLAYER_DIR ?= ../morpthis-player
 DOOMGENERIC_DIR ?= $(abspath $(APPS_DIR)/../doomgeneric/doomgeneric)
+INFONES_DIR ?= $(abspath $(APPS_DIR)/../InfoNES)
 
 TOOLCHAIN ?= $(CURDIR)/toolchain
 TOOLCHAIN_DOWNLOADS ?= $(CURDIR)/toolchain-downloads
@@ -56,7 +59,7 @@ validate:
 
 host: validate
 	$(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" \
-		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" test
+		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" INFONES_DIR="$(INFONES_DIR)" test
 
 test: host
 
@@ -76,12 +79,12 @@ $(CROSS_CC):
 
 device: toolchain
 	$(BUILD_PATH) $(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" \
-		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" check-abi
+		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" INFONES_DIR="$(INFONES_DIR)" check-abi
 
 package: device
 	@rm -rf "$(DIST)" "$(APPS)/dist"
 	$(BUILD_PATH) $(MAKE) -C "$(APPS)" MORPTHIS_SDK="$(MORPTHIS_SDK)" \
-		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" \
+		DOOMGENERIC_DIR="$(DOOMGENERIC_DIR)" INFONES_DIR="$(INFONES_DIR)" \
 		MORPTHIS_MODE=device package
 	@mkdir -p "$(DIST)"
 	@cp "$(APPS)"/dist/*.pkgmerp "$(DIST)"/
@@ -91,6 +94,7 @@ package: device
 		echo "sdk: $$(git -C "$(abspath $(SDK_DIR))" rev-parse HEAD 2>/dev/null || echo unknown)"; \
 		echo "player: $$(git -C "$(abspath $(PLAYER_DIR))" rev-parse HEAD 2>/dev/null || echo unknown)"; \
 		echo "doomgeneric: $$(git -C "$(abspath $(DOOMGENERIC_DIR))" rev-parse HEAD 2>/dev/null || echo unknown)"; \
+		echo "infones: $$(git -C "$(abspath $(INFONES_DIR))" rev-parse HEAD 2>/dev/null || echo unknown)"; \
 	} > "$(DIST)/BUILD-INFO.txt"
 	@echo "Packages in $(DIST):"
 	@ls -1 "$(DIST)"
