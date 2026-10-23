@@ -86,6 +86,9 @@ jobs:
       - name: Run the Subsonic loopback streaming test
         run: make -C apps/apps/subsonic MORPTHIS_MODE=host MORPTHIS_SDK="$GITHUB_WORKSPACE/sdk" test-integration
 
+      - name: Run the Radio loopback streaming test
+        run: make -C apps/apps/radio MORPTHIS_MODE=host MORPTHIS_SDK="$GITHUB_WORKSPACE/sdk" test-integration
+
   prepare:
     name: List the apps
     runs-on: ubuntu-latest
